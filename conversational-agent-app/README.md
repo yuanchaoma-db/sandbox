@@ -49,54 +49,22 @@ This demo shows how to create a simple interface that connects to the Genie API,
 1. Clone the repository to workspace directory such as 
 /Workspace/Users/wenwen.xie@databricks.com/genie_space
 ```bash
-git clone https://github.com/vivian-xie-db/genie_space.git
+git clone https://github.com/databrickslabs/sandbox.git
 ```
 ![](./assets/genie-space1.png)
 
 
-2. Change the "SPACE_ID" environment value to the ID of your Genie space, for example, 01f02a31663e19b0a18f1a2ed7a435a7 in the app.yaml file in the root directory and add 
-a model serving endpoint in App resources for adding a model for insights generation:
+2. Deploy the app using the Databricks Apps interface:
+   - Clone the repository to your Databricks workspace.
+   - Navigate to the **Apps** tab in the sidebar.
+   - Click on your app in the **Name** column.
+   - Click **Deploy** and select the folder 'conversational-agent-app' from the cloned repository.
+   - Click **Select**, then **Deploy**.
+   - Review the configuration and click **Deploy**.
 
-```yaml
-command:
-- "python"
-- "app.py"
+For more details, refer to the [official Databricks documentation](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/deploy).
 
-env:
-- name: "SPACE_ID"
-  value: "space_id"
-- name: "SERVING_ENDPOINT_NAME"
-  valueFrom: "serving_endpoint"
-
-```
-![](./assets/genie-space7.png)
-![](./assets/genie-space8.png)
-
-3. Create an app in the Databricks apps interface and then deploy the path to the code
-
-![](./assets/genie-space2.png)
-
-4. Grant the service principal can_run permission to the genie space.
-![](./assets/genie-space9.png)
-
-5. Grant the service principal permission can_use to the SQL warehouse that powers genie
-
-![](./assets/genie-space5.png)
-
-
-![](./assets/genie-space6.png)
-
-6. Grant the service principal appropriate privileges to the underlying resources such as catalog, schema and tables.
-
-   note: I am using ALL PRIVILEGES for demo purpose but you can do use catalog on catalog, use schema on schema and select on tables
-
-![](./assets/table1.png)
-
-![](./assets/table2.png)
-
-![](./assets/table3.png)
-
-6. Troubleshooting issues:
+4. Troubleshooting issues:
    
    For trouble shooting, navigate to the genie room monitoring page and check if the query has been sent successfully to the genie room via the API. 
 
