@@ -64,7 +64,7 @@ git clone https://github.com/databrickslabs/sandbox.git
 
 For more details, refer to the [official Databricks documentation](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/deploy).
 
-4. Troubleshooting issues:
+3. Troubleshooting issues:
    
    For trouble shooting, navigate to the genie room monitoring page and check if the query has been sent successfully to the genie room via the API. 
 
