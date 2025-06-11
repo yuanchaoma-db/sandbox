@@ -25,8 +25,31 @@ logger = logging.getLogger(__name__)
 # Create Dash app
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP]
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    title="Conversational Agent",
+    update_title=None,  # Disable automatic title updates
+    suppress_callback_exceptions=True
 )
+
+# Remove Dash favicon
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>Conversational app</title>
+        {%css%}
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
 
 # Add default welcome text that can be customized
 DEFAULT_WELCOME_TITLE = "Welcome to Your Data Assistant"
@@ -37,6 +60,7 @@ app.layout = html.Div([
     html.Div([
         dcc.Store(id="selected-space-id", data=None, storage_type="local"),
         dcc.Store(id="spaces-list", data=[]),
+        dcc.Store(id="user-info", data={"initial": "Y", "username": "You"}),
         # Space selection overlay
         html.Div([
             html.Div([
@@ -70,24 +94,24 @@ app.layout = html.Div([
                 # Sidebar
                 html.Div([
                     html.Div([
-                        html.Div("Your conversations with Genie", className="sidebar-header-text"),
+                        html.Div("Your conversations with Agent", className="sidebar-header-text"),
                     ], className="sidebar-header"),
                     html.Div([], className="chat-list", id="chat-list")
                 ], id="sidebar", className="sidebar")
             ], id="left-component", className="left-component"),
             
             html.Div([
-                html.Div("Genie Space", id="logo-container", className="logo-container")
+                html.Div("Conversational Agent", id="logo-container", className="logo-container")
             ], className="nav-center"),
             html.Div([
-                html.Div("Y", className="user-avatar"),
+                html.Div("Y", id="top-nav-avatar", className="user-avatar"),
                 html.A(
                     html.Button(
                         "Logout",
                         id="logout-button",
                         className="logout-button"
                     ),
-                    href=f"https://{os.getenv('DATABRICKS_HOST')}/login.html",
+                    href=f"{os.getenv('DATABRICKS_APP_URL')}",
                     className="logout-link"
                 )
             ], className="nav-right")
@@ -181,6 +205,23 @@ app.layout = html.Div([
 # Store chat history
 chat_history = []
 
+def get_user_info_from_headers():
+    """Extract user information from request headers"""
+    try:
+        username = request.headers.get("X-Forwarded-Preferred-Username", "").split("@")[0]
+        username = username.split(".")
+        username = [part[0].upper() + part[1:] for part in username]
+        username = " ".join(username)
+
+        if username:
+            initial = username[0].upper()
+            return {"initial": initial, "username": username}
+        else:
+            return {"initial": "Y", "username": "You"}
+    except Exception as e:
+        logger.warning(f"Failed to extract user info from headers: {str(e)}")
+        return {"initial": "Y", "username": "You"}
+
 def format_sql_query(sql_query):
     """Format SQL query using sqlparse library"""
     formatted_sql = sqlparse.format(
@@ -235,6 +276,16 @@ def call_llm_for_insights(df, prompt=None):
         return f"Error generating insights: {str(e)}"
     
 
+# Callback to initialize user info from headers
+@app.callback(
+    Output("user-info", "data"),
+    Input("user-info", "id"),
+    prevent_initial_call=False
+)
+def initialize_user_info(_):
+    """Initialize user info from request headers"""
+    return get_user_info_from_headers()
+
 # First callback: Handle inputs and show thinking indicator
 @app.callback(
     [Output("chat-messages", "children", allow_duplicate=True),
@@ -260,12 +311,13 @@ def call_llm_for_insights(df, prompt=None):
      State("welcome-container", "className"),
      State("chat-list", "children"),
      State("chat-history-store", "data"),
-     State("session-store", "data")],
+     State("session-store", "data"),
+     State("user-info", "data")],
     prevent_initial_call=True
 )
 def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, submit_clicks,
                      s1_text, s2_text, s3_text, s4_text, input_value, current_messages,
-                     welcome_class, current_chat_list, chat_history, session_data):
+                     welcome_class, current_chat_list, chat_history, session_data, user_info):
     ctx = callback_context
     if not ctx.triggered:
         return [no_update] * 8
@@ -290,10 +342,13 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
         return [no_update] * 8
     
     # Create user message with user info
+    user_initial = user_info.get("initial", "Y") if user_info else "Y"
+    username = user_info.get("username", "You") if user_info else "You"
+    
     user_message = html.Div([
         html.Div([
-            html.Div("Y", className="user-avatar"),
-            html.Span("You", className="model-name")
+            html.Div(user_initial, className="user-avatar"),
+            html.Span(username, className="model-name")
         ], className="user-info"),
         html.Div(user_input, className="message-text")
     ], className="user-message message")
@@ -480,7 +535,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
         bot_response = html.Div([
             html.Div([
                 html.Div(className="model-avatar"),
-                html.Span("Genie", className="model-name")
+                html.Span("Agent", className="model-name")
             ], className="model-info"),
             html.Div([
                 content,
@@ -497,7 +552,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
         error_response = html.Div([
             html.Div([
                 html.Div(className="model-avatar"),
-                html.Span("Genie", className="model-name")
+                html.Span("Agent", className="model-name")
             ], className="model-info"),
             html.Div([
                 html.Div(error_msg, className="message-text")
@@ -823,6 +878,18 @@ def update_query_tooltip_class(query_running):
         return "query-tooltip query-tooltip-active"
     else:
         return "query-tooltip"
+
+# Callback to update top navigation avatar
+@app.callback(
+    Output("top-nav-avatar", "children"),
+    Input("user-info", "data"),
+    prevent_initial_call=False
+)
+def update_top_nav_avatar(user_info):
+    """Update the top navigation avatar with user initial"""
+    if user_info and user_info.get("initial"):
+        return user_info["initial"]
+    return "Y"
 
 if __name__ == "__main__":
     app.run_server(debug=True)
